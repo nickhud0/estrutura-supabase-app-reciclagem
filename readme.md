@@ -4,7 +4,9 @@
 
 Certifique-se de estar no diretório raiz do seu projeto local (`~/supabaseinit`) e que o **Docker esteja rodando**.
 
-Bash
+Bash usei esse comando para clonar a estrutura 'supabase db dump \
+  --db-url 'postgresql://postgres:1zb50by0e1Jb1mrc@db.yckrunqvwtgnkexmlacq.supabase.co:5432/postgres' \
+  -f supabase/migrations/schema_manual_$(date +%Y%m%d%H%M%S).sql'
 
 ```
 # 1. Desloga para garantir um novo token de acesso
@@ -51,3 +53,5 @@ supabase link --project-ref <REF_DO_PROJETO_DE_DESTINO> --debug
 # 4. ENVIA o esquema para o novo projeto
 supabase db push
 ```
+
+supabase link --project-ref yckrunqvwtgnkexmlacq

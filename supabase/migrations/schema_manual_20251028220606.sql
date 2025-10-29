@@ -836,40 +836,41 @@ ALTER VIEW "public"."relatorio_anual" OWNER TO "postgres";
 
 CREATE OR REPLACE VIEW "public"."relatorio_diario" AS
  WITH "compras" AS (
-         SELECT "date_trunc"('day'::"text", "i"."data") AS "dia",
+         SELECT (("i"."data" AT TIME ZONE 'America/Sao_Paulo'::"text"))::"date" AS "dia",
             "sum"("i"."valor_total") AS "compra"
            FROM ("public"."item" "i"
              JOIN "public"."comanda" "c_1" ON (("c_1"."id" = "i"."comanda")))
           WHERE ("c_1"."tipo" = 'compra'::"public"."comanda_tipo")
-          GROUP BY ("date_trunc"('day'::"text", "i"."data"))
+          GROUP BY ((("i"."data" AT TIME ZONE 'America/Sao_Paulo'::"text"))::"date")
         ), "vendas" AS (
-         SELECT "date_trunc"('day'::"text", "i"."data") AS "dia",
+         SELECT (("i"."data" AT TIME ZONE 'America/Sao_Paulo'::"text"))::"date" AS "dia",
             "sum"("i"."valor_total") AS "venda"
            FROM ("public"."item" "i"
              JOIN "public"."comanda" "c_1" ON (("c_1"."id" = "i"."comanda")))
           WHERE ("c_1"."tipo" = 'venda'::"public"."comanda_tipo")
-          GROUP BY ("date_trunc"('day'::"text", "i"."data"))
+          GROUP BY ((("i"."data" AT TIME ZONE 'America/Sao_Paulo'::"text"))::"date")
         ), "despesas" AS (
-         SELECT "date_trunc"('day'::"text", "d_1"."data") AS "dia",
-            "sum"("d_1"."valor") AS "despesa"
-           FROM "public"."despesa" "d_1"
-          GROUP BY ("date_trunc"('day'::"text", "d_1"."data"))
+         SELECT (("d"."data" AT TIME ZONE 'America/Sao_Paulo'::"text"))::"date" AS "dia",
+            "sum"("d"."valor") AS "despesa"
+           FROM "public"."despesa" "d"
+          GROUP BY ((("d"."data" AT TIME ZONE 'America/Sao_Paulo'::"text"))::"date")
+        ), "limites" AS (
+         SELECT LEAST(COALESCE(( SELECT "min"((("i"."data" AT TIME ZONE 'America/Sao_Paulo'::"text"))::"date") AS "min"
+                   FROM "public"."item" "i"), (("now"() AT TIME ZONE 'America/Sao_Paulo'::"text"))::"date"), COALESCE(( SELECT "min"((("d"."data" AT TIME ZONE 'America/Sao_Paulo'::"text"))::"date") AS "min"
+                   FROM "public"."despesa" "d"), (("now"() AT TIME ZONE 'America/Sao_Paulo'::"text"))::"date")) AS "min_dia",
+            (("now"() AT TIME ZONE 'America/Sao_Paulo'::"text"))::"date" AS "max_dia"
         )
- SELECT ("d"."d")::"date" AS "data",
+ SELECT ("s"."dia")::"date" AS "data",
     (COALESCE("c"."compra", (0)::numeric))::numeric(14,4) AS "compra",
     (COALESCE("v"."venda", (0)::numeric))::numeric(14,4) AS "venda",
     (COALESCE("e"."despesa", (0)::numeric))::numeric(14,4) AS "despesa",
     (((COALESCE("v"."venda", (0)::numeric) - COALESCE("c"."compra", (0)::numeric)) - COALESCE("e"."despesa", (0)::numeric)))::numeric(14,4) AS "lucro"
-   FROM ((("generate_series"(( SELECT "min"("s"."mind") AS "min"
-           FROM ( SELECT "min"("i"."data") AS "mind"
-                   FROM "public"."item" "i"
-                UNION ALL
-                 SELECT "min"("d_1"."data") AS "mind"
-                   FROM "public"."despesa" "d_1") "s"), "now"(), '1 day'::interval) "d"("d")
-     LEFT JOIN "compras" "c" ON (("date_trunc"('day'::"text", "d"."d") = "c"."dia")))
-     LEFT JOIN "vendas" "v" ON (("date_trunc"('day'::"text", "d"."d") = "v"."dia")))
-     LEFT JOIN "despesas" "e" ON (("date_trunc"('day'::"text", "d"."d") = "e"."dia")))
-  ORDER BY (("d"."d")::"date") DESC;
+   FROM "limites" "l",
+    (((LATERAL "generate_series"(("l"."min_dia")::timestamp with time zone, ("l"."max_dia")::timestamp with time zone, '1 day'::interval) "s"("dia")
+     LEFT JOIN "compras" "c" ON (("c"."dia" = "s"."dia")))
+     LEFT JOIN "vendas" "v" ON (("v"."dia" = "s"."dia")))
+     LEFT JOIN "despesas" "e" ON (("e"."dia" = "s"."dia")))
+  ORDER BY (("s"."dia")::"date") DESC;
 
 
 ALTER VIEW "public"."relatorio_diario" OWNER TO "postgres";
@@ -1705,4 +1706,3 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 
 
 RESET ALL;
-
